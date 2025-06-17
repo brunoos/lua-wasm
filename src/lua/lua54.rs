@@ -4,8 +4,6 @@
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 
-pub const LUA_TLIGHTUSERDATA: u32 = 2;
-pub const LUA_TUSERDATA: u32 = 7;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct lua_State {
@@ -13,9 +11,6 @@ pub struct lua_State {
 }
 pub type lua_CFunction =
     ::std::option::Option<unsafe extern "C" fn(L: *mut lua_State) -> ::std::os::raw::c_int>;
-unsafe extern "C" {
-    pub fn lua_type(L: *mut lua_State, idx: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
-}
 unsafe extern "C" {
     pub fn lua_tolstring(
         L: *mut lua_State,

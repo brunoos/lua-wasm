@@ -5,22 +5,14 @@ mod lua54;
 pub use lua54::lua_State;
 use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
-    lua_pushcclosure, lua_pushlstring, lua_rawset, lua_type,
-    lua_touserdata, lua_tolstring, lua_pushnil,
-    LUA_TUSERDATA, LUA_TLIGHTUSERDATA
+    lua_pushcclosure, lua_pushlstring, lua_rawset,
+    lua_touserdata, lua_tolstring, lua_pushnil
 };
 
 #[repr(transparent)]
 pub struct LuaState(*mut lua_State);
 
 impl LuaState {
-    pub fn isuserdata(self: &LuaState, idx: i32) -> bool {
-        unsafe {
-            lua_type(self.0, idx as c_int) == (LUA_TUSERDATA as c_int) ||
-            lua_type(self.0, idx as c_int) == (LUA_TLIGHTUSERDATA as c_int)
-        }
-    }
-
     pub fn new(state: *mut lua_State) -> Self {
         LuaState(state)
     }
