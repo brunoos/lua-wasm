@@ -2,11 +2,11 @@ use std::os::raw::{c_int, c_void};
 
 mod lua54;
 
-pub use lua54::lua_State;
+pub use lua54::{lua_State, lua_Number};
 use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
     lua_pushcclosure, lua_pushlstring, lua_rawset,
-    lua_touserdata, lua_tolstring, lua_pushnil
+    lua_touserdata, lua_tolstring, lua_pushnil, lua_pushnumber
 };
 
 #[repr(transparent)]
@@ -38,6 +38,12 @@ impl LuaState {
     pub fn pushnil(self: &LuaState) {
         unsafe {
             lua_pushnil(self.0);
+        }
+    }
+
+    pub fn pushnumber(self: &LuaState, n: lua_Number) {
+        unsafe {
+            lua_pushnumber(self.0, n);
         }
     }
 
@@ -74,7 +80,6 @@ impl LuaState {
             lua_touserdata(self.0, idx as c_int)
         }
     }
-
 }
 
 //------------------------------------------------------------------------------

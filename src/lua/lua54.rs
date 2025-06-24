@@ -9,6 +9,7 @@
 pub struct lua_State {
     _unused: [u8; 0],
 }
+pub type lua_Number = f64;
 pub type lua_CFunction =
     ::std::option::Option<unsafe extern "C" fn(L: *mut lua_State) -> ::std::os::raw::c_int>;
 unsafe extern "C" {
@@ -26,6 +27,9 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn lua_pushnil(L: *mut lua_State);
+}
+unsafe extern "C" {
+    pub fn lua_pushnumber(L: *mut lua_State, n: lua_Number);
 }
 unsafe extern "C" {
     pub fn lua_pushlstring(

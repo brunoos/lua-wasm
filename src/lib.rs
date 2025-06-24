@@ -1,8 +1,10 @@
 use std::os::raw::c_void;
-use wasmtime::{Engine, Module, Linker, Store};
+use wasmtime::{Engine, ExternType, Linker, Module, Store};
 
 mod lua;
 use lua::LuaState;
+
+use crate::lua::lua_Number;
 
 fn meth_create_engine(state: &LuaState) -> i32 {
     let engine = Engine::default();
@@ -116,6 +118,55 @@ fn meth_destroy_instance(state: &LuaState) -> i32 {
     return 0;
 }
 
+fn meth_get_exports(state: &LuaState) -> i32 {
+    let module_ptr = state.touserdata(1) as *mut wasmtime::Module;
+    if module_ptr.is_null() {
+        state.pushnil();
+        return 1;
+    }
+    let module = unsafe { &*module_ptr };
+    let exports = module.exports();
+    let mut count: i32 = 0;
+    state.newtable();
+    for export in exports {
+        if let ExternType::Func(ft) = export.ty() {
+            count += 1;
+            state.pushnumber(count as lua_Number);
+            state.newtable();
+
+            state.pushstring("type");
+            state.pushstring("function");
+            state.rawset(-3);
+
+            state.pushstring("name");
+            state.pushstring(export.name());
+            state.rawset(-3);
+
+            state.pushstring("params");
+            state.newtable();
+            ft.params().enumerate()
+                .for_each(|(i, t)| {
+                    state.pushnumber((i+1) as lua_Number);
+                    state.pushstring(t.to_string().as_str());
+                    state.rawset(-3);
+                });
+            state.rawset(-3);
+
+            state.pushstring("results");
+            state.newtable();
+            ft.results().enumerate()
+                .for_each(|(i, t)| {
+                    state.pushnumber((i+1) as lua_Number);
+                    state.pushstring(t.to_string().as_str());
+                    state.rawset(-3);
+                });
+            state.rawset(-3);
+
+            state.rawset(-3);
+        }
+    }
+    return 1;
+}
 //------------------------------------------------------------------------------
 
 derive_cfunctions!(
@@ -126,7 +177,8 @@ derive_cfunctions!(
     meth_create_linker,
     meth_destroy_linker,
     meth_create_instance,
-    meth_destroy_instance
+    meth_destroy_instance,
+    meth_get_exports
 );
 
 //------------------------------------------------------------------------------
@@ -164,6 +216,10 @@ fn init_wasm_core(state: &LuaState) -> i32 {
 
     state.pushstring("destroy_instance");
     state.pushcfunction(Some(cfunctions::meth_destroy_instance));
+    state.rawset(-3);
+
+    state.pushstring("get_exports");
+    state.pushcfunction(Some(cfunctions::meth_get_exports));
     state.rawset(-3);
 
     return 1;

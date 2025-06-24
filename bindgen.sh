@@ -17,6 +17,7 @@ bindgen \
  --allowlist-function "lua_pushlightuserdata" \
  --allowlist-function "lua_pushlstring" \
  --allowlist-function "lua_pushnil" \
+ --allowlist-function "lua_pushnumber" \
  --allowlist-function "lua_rawset" \
  --allowlist-function "lua_tolstring" \
  --allowlist-function "lua_touserdata" \

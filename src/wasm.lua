@@ -13,10 +13,10 @@ linkermeta.__index = {}
 modulemeta.__index = {}
 instancemeta.__index = {}
 
--- Gabage collector for engine.
-enginemeta.__gc = function(e)
-  print("Destroying engine: ", e._refengine)
-  core.destroy_engine(e._refengine)
+-- Destroys a engine.
+enginemeta.__gc = function(self)
+  print("Destroying engine: ", self._refengine)
+  core.destroy_engine(self._refengine)
 end
 
 -- Creates a new module.
@@ -32,15 +32,7 @@ enginemeta.__index.newmodule = function(self, content)
   return module
 end
 
-modulemeta.__gc = function(m)
-  if m._refmodule then
-    print("Destroying module: ", m._refmodule)
-    core.destroy_module(m._refmodule)
-    m._refmodule = nil
-    m._engine = nil
-  end
-end
-
+-- Creates a new linker.
 enginemeta.__index.newlinker = function(self)
   local ref = core.create_linker(self._refengine)
   if not ref then
@@ -52,15 +44,17 @@ enginemeta.__index.newlinker = function(self)
   }, linkermeta)
 end
 
-linkermeta.__gc = function(l)
-  if l._reflinker then
-    print("Destroying linker: ", l._reflinker)
-    core.destroy_linker(l._reflinker)
-    l._reflinker = nil
-    l._engine = nil
+-- Destroys a module.
+modulemeta.__gc = function(self)
+  if self._refmodule then
+    print("Destroying module: ", self._refmodule)
+    core.destroy_module(self._refmodule)
+    self._refmodule = nil
+    self._engine = nil
   end
 end
 
+-- Creates a new instance from a module using a linker.
 modulemeta.__index.newinstance = function(self, linker)
   local ref = core.create_instance(self._engine._refengine, linker._reflinker, self._refmodule)
   if not ref then
@@ -72,12 +66,32 @@ modulemeta.__index.newinstance = function(self, linker)
   }, instancemeta)
 end
 
-instancemeta.__gc = function(i)
-  if i._refinstance then
-    print("Destroying instance: ", i._refinstance)
-    core.destroy_instance(i._refinstance)
-    i._refinstance = nil
-    i._module = nil
+-- Get the exports of a module.
+modulemeta.__index.exports = function(self)
+  local exports = core.get_exports(self._refmodule)
+  if not exports then
+    return nil, "failed to get exports"
+  end
+  return exports
+end
+
+-- Destroys a linker.
+linkermeta.__gc = function(self)
+  if self._reflinker then
+    print("Destroying linker: ", self._reflinker)
+    core.destroy_linker(self._reflinker)
+    self._reflinker = nil
+    self._engine = nil
+  end
+end
+
+-- Destroys an instance.
+instancemeta.__gc = function(self)
+  if self._refinstance then
+    print("Destroying instance: ", self._refinstance)
+    core.destroy_instance(self._refinstance)
+    self._refinstance = nil
+    self._module = nil
   end
 end
 
