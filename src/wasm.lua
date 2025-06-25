@@ -56,12 +56,13 @@ end
 
 -- Creates a new instance from a module using a linker.
 modulemeta.__index.newinstance = function(self, linker)
-  local ref = core.create_instance(self._engine._refengine, linker._reflinker, self._refmodule)
-  if not ref then
+  local refinstance, refstore = core.create_instance(self._engine._refengine, linker._reflinker, self._refmodule)
+  if not refinstance then
     return nil, "failed to create instance"
   end
   return setmetatable({
-    _refinstance = ref,
+    _refinstance = refinstance,
+    _refstore = refstore,
     _module = self,
   }, instancemeta)
 end
@@ -89,12 +90,35 @@ end
 instancemeta.__gc = function(self)
   if self._refinstance then
     print("Destroying instance: ", self._refinstance)
+    print("Destroying store: ", self._refstore)
     core.destroy_instance(self._refinstance)
+    core.destroy_store(self._refstore)
     self._refinstance = nil
+    self._refstore = nil
     self._module = nil
   end
 end
 
+instancemeta.__index.exports = function(self)
+  local exports = core.get_exports(self._module._refmodule)
+  if not exports then
+    return nil, "failed to get module exports"
+  end
+  return exports
+end
+
+instancemeta.__index.invoke = function(self, name, ...)
+  local exports = core.get_exports(self._module._refmodule)
+  if not exports then
+    return nil, "failed to get module exports"
+  end
+  for i, export in ipairs(exports) do
+    if export.name == name and export.type == "function" then
+      return core.invoke(self._refinstance, self._refstore, export.name, ...)
+    end
+  end
+  return nil, "function not found"
+end
 --------------------------------------------------------------------------------
 
 -- Creates a new engine.

@@ -2,11 +2,12 @@ use std::os::raw::{c_int, c_void};
 
 mod lua54;
 
-pub use lua54::{lua_State, lua_Number};
+pub use lua54::{lua_State, lua_Number, lua_Integer};
 use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
     lua_pushcclosure, lua_pushlstring, lua_rawset,
-    lua_touserdata, lua_tolstring, lua_pushnil, lua_pushnumber
+    lua_touserdata, lua_tolstring, lua_pushnumber,
+    lua_tointegerx
 };
 
 #[repr(transparent)]
@@ -32,12 +33,6 @@ impl LuaState {
     pub fn pushlightuserdata(&self, p: *mut c_void) {
         unsafe {
             lua_pushlightuserdata(self.0, p);
-        }
-    }
-
-    pub fn pushnil(self: &LuaState) {
-        unsafe {
-            lua_pushnil(self.0);
         }
     }
 
@@ -75,9 +70,42 @@ impl LuaState {
         }
     }
 
+    pub fn tointeger(&self, idx: i32) -> Option<lua_Integer> {
+        let mut isnum: c_int = 0;
+        unsafe {
+            let val = lua_tointegerx(self.0, idx as c_int, &mut isnum);
+            if isnum == 0 {
+                None
+            } else {
+                Some(val)
+            }
+        }
+    }
+
+    pub fn tostring(&self, idx: i32) -> Option<String> {
+        let mut len: usize = 0;
+        unsafe {
+            let ptr = lua_tolstring(self.0, idx as c_int, &mut len);
+            if ptr.is_null() {
+                None
+            } else {
+                Some(
+                    String::from_utf8_lossy(std::slice::from_raw_parts(ptr as *const u8, len)).into_owned()
+                )
+            }
+        }
+    }
+
     pub fn touserdata(&self, idx: i32) -> *mut c_void {
         unsafe {
             lua_touserdata(self.0, idx as c_int)
+        }
+    }
+
+    pub fn to_typed_userdata<T>(&self, idx: i32) -> Option<&mut T> {
+        match self.touserdata(idx) as *mut T {
+            ptr if ptr.is_null() => None,
+            ptr => Some(unsafe { &mut *ptr }),
         }
     }
 }

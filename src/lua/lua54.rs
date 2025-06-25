@@ -10,8 +10,16 @@ pub struct lua_State {
     _unused: [u8; 0],
 }
 pub type lua_Number = f64;
+pub type lua_Integer = ::std::os::raw::c_longlong;
 pub type lua_CFunction =
     ::std::option::Option<unsafe extern "C" fn(L: *mut lua_State) -> ::std::os::raw::c_int>;
+unsafe extern "C" {
+    pub fn lua_tointegerx(
+        L: *mut lua_State,
+        idx: ::std::os::raw::c_int,
+        isnum: *mut ::std::os::raw::c_int,
+    ) -> lua_Integer;
+}
 unsafe extern "C" {
     pub fn lua_tolstring(
         L: *mut lua_State,
@@ -24,9 +32,6 @@ unsafe extern "C" {
         L: *mut lua_State,
         idx: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_void;
-}
-unsafe extern "C" {
-    pub fn lua_pushnil(L: *mut lua_State);
 }
 unsafe extern "C" {
     pub fn lua_pushnumber(L: *mut lua_State, n: lua_Number);
