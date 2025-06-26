@@ -8,7 +8,7 @@ use wasmtime::{
 mod lua;
 use lua::LuaState;
 
-use crate::lua::{lua_Number, lua_State};
+use crate::lua::{lua_Number, lua_State, lua_Integer};
 
 fn meth_create_engine(state: &LuaState) -> i32 {
     let engine = Engine::default();
@@ -305,15 +305,39 @@ fn meth_invoke(state: &LuaState) -> i32 {
         for (n , vt) in ft.params().enumerate() {
             match vt {
                 ValType::I32 => {
-                    let v = state.tointeger((n+4) as i32).unwrap();
-                    params.push(Val::I32(v as i32))
+                    match state.tointeger((n+4) as i32) {
+                        Some(v) => {
+                            params.push(Val::I32(v as i32));
+                        },
+                        None => return 0,
+                    }
                 },
                 ValType::I64 => {
-                    let v = state.tointeger((n+4) as i32).unwrap();
-                    params.push(Val::I64(v))
+                    match state.tointeger((n+4) as i32) {
+                        Some(v) => {
+                            params.push(Val::I64(v))
+                        },
+                        None => return 0,
+                    }
                 },
-                ValType::F32 => params.push(Val::F32(0)),
-                ValType::F64 => params.push(Val::F64(0)),
+                ValType::F32 => {
+                    match state.tonumber((n+4) as i32) {
+                        Some(v) => {
+                            let v = u32::from_ne_bytes((v as f32).to_ne_bytes());
+                            params.push(Val::F32(v));
+                        },
+                        None => return 0,
+                    }
+                },
+                ValType::F64 => {
+                    match state.tonumber((n+4) as i32) {
+                        Some(v) => {
+                            let v = u64::from_ne_bytes(v.to_ne_bytes());
+                            params.push(Val::F64(v));
+                        },
+                        None => return 0,
+                    }
+                }
                 _ => return 0,
             }
         }
@@ -338,10 +362,10 @@ fn meth_invoke(state: &LuaState) -> i32 {
 
     for val in results.iter() {
         match val {
-            Val::I32(v) => state.pushnumber(*v as lua_Number),
-            Val::I64(v) => state.pushnumber(*v as lua_Number),
-            Val::F32(v) => state.pushnumber(*v as lua_Number),
-            Val::F64(v) => state.pushnumber(*v as lua_Number),
+            Val::I32(v) => state.pushinteger(*v as lua_Integer),
+            Val::I64(v) => state.pushinteger(*v as lua_Integer),
+            Val::F32(v) => state.pushnumber(f32::from_ne_bytes((*v).to_ne_bytes()) as lua_Number),
+            Val::F64(v) => state.pushnumber(f64::from_ne_bytes((*v).to_ne_bytes()) as lua_Number),
             _ => return 0,
         }
     }

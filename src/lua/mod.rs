@@ -7,7 +7,8 @@ use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
     lua_pushcclosure, lua_pushlstring, lua_rawset,
     lua_touserdata, lua_tolstring, lua_pushnumber,
-    lua_tointegerx, lua_pushboolean, lua_tonumberx
+    lua_tointegerx, lua_pushboolean, lua_tonumberx,
+    lua_pushinteger
 };
 
 #[repr(transparent)]
@@ -34,6 +35,12 @@ impl LuaState {
     pub fn pushcfunction(self: &LuaState, f: lua_CFunction) {
         unsafe {
             lua_pushcclosure(self.0, f, 0);
+        }
+    }
+
+    pub fn pushinteger(self: &LuaState, n: lua_Integer) {
+        unsafe {
+            lua_pushinteger(self.0, n);
         }
     }
 

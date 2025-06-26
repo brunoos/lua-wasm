@@ -15,6 +15,7 @@ bindgen \
  --allowlist-function "lua_createtable" \
  --allowlist-function "lua_pushboolean" \
  --allowlist-function "lua_pushcclosure" \
+ --allowlist-function "lua_pushinteger" \
  --allowlist-function "lua_pushlightuserdata" \
  --allowlist-function "lua_pushlstring" \
  --allowlist-function "lua_pushnumber" \

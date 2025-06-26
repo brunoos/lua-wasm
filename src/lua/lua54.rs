@@ -44,6 +44,9 @@ unsafe extern "C" {
     pub fn lua_pushnumber(L: *mut lua_State, n: lua_Number);
 }
 unsafe extern "C" {
+    pub fn lua_pushinteger(L: *mut lua_State, n: lua_Integer);
+}
+unsafe extern "C" {
     pub fn lua_pushlstring(
         L: *mut lua_State,
         s: *const ::std::os::raw::c_char,
