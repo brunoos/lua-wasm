@@ -13,7 +13,7 @@ use lua54::{
 
 pub type LuaInteger = lua_Integer;
 pub type LuaNumber = lua_Number;
-pub type LuaRawState = lua_State;
+pub type RawLuaState = lua_State;
 
 #[repr(transparent)]
 pub struct LuaState(*mut lua_State);
@@ -21,6 +21,10 @@ pub struct LuaState(*mut lua_State);
 impl LuaState {
     pub fn new(state: *mut lua_State) -> Self {
         LuaState(state)
+    }
+
+    pub fn as_ptr(&self) -> *mut lua_State {
+        self.0
     }
 
     pub fn newtable(&self) {

@@ -56,8 +56,13 @@ end
 
 -- Creates a new instance from a module using a linker.
 modulemeta.__index.newinstance = function(self, linker)
-  local refinstance, refstore = core.create_instance(self._engine._refengine, linker._reflinker, self._refmodule)
+  local refstore = core.create_store(self._engine._refengine)
+  if not refstore then
+    return nil, "failed to create instance"
+  end
+  local refinstance = core.create_instance(linker._reflinker, self._refmodule, refstore)
   if not refinstance then
+    core.destroy_store(refstore)
     return nil, "failed to create instance"
   end
   return setmetatable({

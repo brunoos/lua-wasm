@@ -2,11 +2,13 @@ use std::os::raw::c_void;
 
 use wasmtime::{
     Engine, ExternType, Func, Instance, Linker, Module, Store, Val, ValType,
-    Mutability
+    Mutability,
 };
 
 mod lua;
-use lua::{LuaState, LuaNumber, LuaInteger, LuaRawState};
+use lua::{LuaState, LuaNumber, LuaInteger, RawLuaState};
+
+use crate::lua::lua_State;
 
 fn meth_create_engine(state: &LuaState) -> i32 {
     let engine = Engine::default();
@@ -56,7 +58,7 @@ fn meth_create_linker(state: &LuaState) -> i32 {
         Some(e) => e,
         None => return 0,
     };
-    let linker: Linker<u32> = Linker::new(engine);
+    let linker: Linker<*mut RawLuaState> = Linker::new(engine);
     state.pushlightuserdata(Box::into_raw(Box::new(linker)) as *mut c_void);
     return 1;
 }
@@ -72,31 +74,28 @@ fn meth_destroy_linker(state: &LuaState) -> i32 {
 }
 
 fn meth_create_instance(state: &LuaState) -> i32 {
-    let engine = match state.to_typed_userdata::<Engine>(1) {
-        Some(e) => e,
-        None => return 0,
-    };
-
-    let linker = match state.to_typed_userdata::<Linker<u32>>(2) {
+    let linker = match state.to_typed_userdata::<Linker<*mut RawLuaState>>(1) {
         Some(l) => l,
         None => return 0,
     };
 
-    let module = match state.to_typed_userdata::<Module>(3) {
+    let module = match state.to_typed_userdata::<Module>(2) {
         Some(m) => m,
         None => return 0,
     };
 
-    let mut store: Store<u32> = Store::new(engine, 0);
+    let mut store = match state.to_typed_userdata::<Store<*mut RawLuaState>>(3) {
+        Some(s) => s,
+        None => return 0,
+    };
+
     let instance = linker.instantiate(&mut store, module);
     if instance.is_err() {
         return 0;
     }
 
     state.pushlightuserdata(Box::into_raw(Box::new(instance.unwrap())) as *mut c_void);
-    state.pushlightuserdata(Box::into_raw(Box::new(store)) as *mut c_void);
-
-    return 2;
+    return 1;
 }
 
 fn meth_destroy_instance(state: &LuaState) -> i32 {
@@ -109,8 +108,19 @@ fn meth_destroy_instance(state: &LuaState) -> i32 {
     return 0;
 }
 
+fn meth_create_store(state: &LuaState) -> i32 {
+    let engine = match state.to_typed_userdata::<Engine>(1) {
+        Some(e) => e,
+        None => return 0,
+    };
+
+    let store: Store<*mut lua_State> = Store::new(engine, state.as_ptr());
+    state.pushlightuserdata(Box::into_raw(Box::new(store)) as *mut c_void);
+    return 1;
+}
+
 fn meth_destroy_store(state: &LuaState) -> i32 {
-    let store_ptr = state.touserdata(1) as *mut Store<u32>;
+    let store_ptr = state.touserdata(1) as *mut Store<*mut RawLuaState>;
     if !store_ptr.is_null() {
         unsafe {
             drop(Box::from_raw(store_ptr));
@@ -277,7 +287,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
 
     let func: Func;
     { 
-        let store = match state.to_typed_userdata::<Store<*mut LuaRawState>>(2) {
+        let store = match state.to_typed_userdata::<Store<*mut RawLuaState>>(2) {
             Some(store) => store,
             None => return 0,
         };
@@ -292,7 +302,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
     let mut results: Vec<Val> = Vec::new();
 
     {
-        let store = state.to_typed_userdata::<Store<*mut LuaRawState>>(2).unwrap();
+        let store = state.to_typed_userdata::<Store<*mut RawLuaState>>(2).unwrap();
         let ft = func.ty(store);
 
         for (n , vt) in ft.params().enumerate() {
@@ -347,7 +357,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
     }
 
     {
-        let store = state.to_typed_userdata::<Store<*mut LuaRawState>>(2).unwrap();
+        let store = state.to_typed_userdata::<Store<*mut RawLuaState>>(2).unwrap();
         if let Err(_) = func.call(store, &params, &mut results) {
             return 0;
         }
@@ -379,6 +389,7 @@ derive_cfunctions!(
     meth_destroy_instance,
     meth_get_export,
     meth_get_exports,
+    meth_create_store,
     meth_destroy_store,
     meth_invoke
 );
@@ -426,6 +437,10 @@ fn init_wasm_core(state: &LuaState) -> i32 {
 
     state.pushstring("get_exports");
     state.pushcfunction(Some(cfunctions::meth_get_exports));
+    state.rawset(-3);
+
+    state.pushstring("create_store");
+    state.pushcfunction(Some(cfunctions::meth_create_store));
     state.rawset(-3);
 
     state.pushstring("destroy_store");
