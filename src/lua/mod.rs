@@ -23,7 +23,7 @@ impl LuaState {
         LuaState(state)
     }
 
-    pub fn as_ptr(&self) -> *mut lua_State {
+    pub fn as_raw(&self) -> *mut RawLuaState {
         self.0
     }
 
@@ -49,12 +49,6 @@ impl LuaState {
     pub fn pushinteger(self: &LuaState, n: lua_Integer) {
         unsafe {
             lua_pushinteger(self.0, n);
-        }
-    }
-
-    pub fn pushlightuserdata(&self, p: *mut c_void) {
-        unsafe {
-            lua_pushlightuserdata(self.0, p);
         }
     }
 
@@ -136,10 +130,23 @@ impl LuaState {
         }
     }
 
+    pub fn push_typed_lightuserdata<T>(&self, udata: T) {
+        unsafe {
+            lua_pushlightuserdata(self.0, Box::into_raw(Box::new(udata)) as *mut c_void);
+        }
+    }
+
     pub fn to_typed_userdata<T>(&self, idx: i32) -> Option<&mut T> {
         match self.touserdata(idx) as *mut T {
             ptr if ptr.is_null() => None,
             ptr => Some(unsafe { &mut *ptr }),
+        }
+    }
+
+    pub fn to_raw_typed_userdata<T>(&self, idx: i32) -> Option<*mut T> {
+        match self.touserdata(idx) as *mut T {
+            ptr if ptr.is_null() => None,
+            ptr => Some(ptr),
         }
     }
 }

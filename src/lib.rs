@@ -1,5 +1,3 @@
-use std::os::raw::c_void;
-
 use wasmtime::{
     Engine, ExternType, Func, Instance, Linker, Module, Store, Val, ValType,
     Mutability,
@@ -8,20 +6,16 @@ use wasmtime::{
 mod lua;
 use lua::{LuaState, LuaNumber, LuaInteger, RawLuaState};
 
-use crate::lua::lua_State;
 
 fn meth_create_engine(state: &LuaState) -> i32 {
     let engine = Engine::default();
-    state.pushlightuserdata(Box::into_raw(Box::new(engine)) as *mut c_void);
+    state.push_typed_lightuserdata(engine);
     return 1;
 }
 
 fn meth_destroy_engine(state: &LuaState) -> i32 {
-    let engine_ptr = state.touserdata(1) as *mut Engine;
-    if !engine_ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(engine_ptr));
-        }
+    if let Some(engine) = state.to_raw_typed_userdata::<Engine>(1) {
+        unsafe { drop(Box::from_raw(engine)); }
     }
     return 0;
 }
@@ -39,16 +33,13 @@ fn meth_create_module(state: &LuaState) -> i32 {
     if module.is_err() {
         return 0;
     }
-    state.pushlightuserdata(Box::into_raw(Box::new(module.unwrap())) as *mut c_void);
+    state.push_typed_lightuserdata(module.unwrap());
     return 1;
 }
 
 fn meth_destroy_module(state: &LuaState) -> i32 {
-    let module_ptr = state.touserdata(1) as *mut Module;
-    if !module_ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(module_ptr));
-        }
+    if let Some(module) = state.to_raw_typed_userdata::<Module>(1) {
+        unsafe { drop(Box::from_raw(module)); }
     }
     return 0;
 }
@@ -59,16 +50,13 @@ fn meth_create_linker(state: &LuaState) -> i32 {
         None => return 0,
     };
     let linker: Linker<*mut RawLuaState> = Linker::new(engine);
-    state.pushlightuserdata(Box::into_raw(Box::new(linker)) as *mut c_void);
+    state.push_typed_lightuserdata(linker);
     return 1;
 }
 
 fn meth_destroy_linker(state: &LuaState) -> i32 {
-    let linker_ptr = state.touserdata(1) as *mut Linker<u32>;
-    if !linker_ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(linker_ptr));
-        }
+    if let Some(linker) = state.to_raw_typed_userdata::<Linker<*mut RawLuaState>>(1) {
+        unsafe { drop(Box::from_raw(linker)); }
     }
     return 0;
 }
@@ -94,16 +82,13 @@ fn meth_create_instance(state: &LuaState) -> i32 {
         return 0;
     }
 
-    state.pushlightuserdata(Box::into_raw(Box::new(instance.unwrap())) as *mut c_void);
+    state.push_typed_lightuserdata(instance.unwrap());
     return 1;
 }
 
 fn meth_destroy_instance(state: &LuaState) -> i32 {
-    let instance_ptr = state.touserdata(1) as *mut Instance;
-    if !instance_ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(instance_ptr));
-        }
+    if let Some(instance) = state.to_raw_typed_userdata::<Instance>(1) {
+        unsafe { drop(Box::from_raw(instance)); }
     }
     return 0;
 }
@@ -114,17 +99,14 @@ fn meth_create_store(state: &LuaState) -> i32 {
         None => return 0,
     };
 
-    let store: Store<*mut lua_State> = Store::new(engine, state.as_ptr());
-    state.pushlightuserdata(Box::into_raw(Box::new(store)) as *mut c_void);
+    let store: Store<*mut RawLuaState> = Store::new(engine, state.as_raw());
+    state.push_typed_lightuserdata(store);
     return 1;
 }
 
 fn meth_destroy_store(state: &LuaState) -> i32 {
-    let store_ptr = state.touserdata(1) as *mut Store<*mut RawLuaState>;
-    if !store_ptr.is_null() {
-        unsafe {
-            drop(Box::from_raw(store_ptr));
-        }
+    if let Some(store) = state.to_raw_typed_userdata::<Store<*mut RawLuaState>>(1) {
+        unsafe { drop(Box::from_raw(store)); }
     }
     return 0;
 }
