@@ -2,14 +2,18 @@ use std::os::raw::{c_int, c_void};
 
 mod lua54;
 
-pub use lua54::{lua_State, lua_Number, lua_Integer};
+pub use lua54::lua_State;
 use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
     lua_pushcclosure, lua_pushlstring, lua_rawset,
     lua_touserdata, lua_tolstring, lua_pushnumber,
     lua_tointegerx, lua_pushboolean, lua_tonumberx,
-    lua_pushinteger
+    lua_pushinteger, lua_Number, lua_Integer,
 };
+
+pub type LuaInteger = lua_Integer;
+pub type LuaNumber = lua_Number;
+pub type LuaRawState = lua_State;
 
 #[repr(transparent)]
 pub struct LuaState(*mut lua_State);

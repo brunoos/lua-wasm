@@ -6,9 +6,7 @@ use wasmtime::{
 };
 
 mod lua;
-use lua::LuaState;
-
-use crate::lua::{lua_Number, lua_State, lua_Integer};
+use lua::{LuaState, LuaNumber, LuaInteger, LuaRawState};
 
 fn meth_create_engine(state: &LuaState) -> i32 {
     let engine = Engine::default();
@@ -27,11 +25,10 @@ fn meth_destroy_engine(state: &LuaState) -> i32 {
 }
 
 fn meth_create_module(state: &LuaState) -> i32 {
-    let engine_ptr = state.touserdata(1) as *mut Engine;
-    if engine_ptr.is_null() {
-        return 0;
-    }
-    let engine = unsafe { &*engine_ptr };
+    let engine = match state.to_typed_userdata::<Engine>(1) {
+        Some(e) => e,
+        None => return 0,
+    };
     let data = state.tobytes(2);
     if data.is_none() {
         return 0;
@@ -55,11 +52,10 @@ fn meth_destroy_module(state: &LuaState) -> i32 {
 }
 
 fn meth_create_linker(state: &LuaState) -> i32 {
-    let engine_ptr = state.touserdata(1) as *mut Engine;
-    if engine_ptr.is_null() {
-        return 0;
-    }
-    let engine = unsafe { &*engine_ptr };
+    let engine = match state.to_typed_userdata::<Engine>(1) {
+        Some(e) => e,
+        None => return 0,
+    };
     let linker: Linker<u32> = Linker::new(engine);
     state.pushlightuserdata(Box::into_raw(Box::new(linker)) as *mut c_void);
     return 1;
@@ -76,23 +72,20 @@ fn meth_destroy_linker(state: &LuaState) -> i32 {
 }
 
 fn meth_create_instance(state: &LuaState) -> i32 {
-    let engine_ptr = state.touserdata(1) as *mut Engine;
-    if engine_ptr.is_null() {
-        return 0;
-    }
-    let engine = unsafe { &*engine_ptr };    
+    let engine = match state.to_typed_userdata::<Engine>(1) {
+        Some(e) => e,
+        None => return 0,
+    };
 
-    let linker_ptr = state.touserdata(2) as *mut Linker<u32>;
-    if linker_ptr.is_null() {
-        return 0;
-    }
-    let linker = unsafe { &*linker_ptr };
+    let linker = match state.to_typed_userdata::<Linker<u32>>(2) {
+        Some(l) => l,
+        None => return 0,
+    };
 
-    let module_ptr = state.touserdata(3) as *mut Module;
-    if module_ptr.is_null() {
-        return 0;
-    }
-    let module = unsafe { &*module_ptr };
+    let module = match state.to_typed_userdata::<Module>(3) {
+        Some(m) => m,
+        None => return 0,
+    };
 
     let mut store: Store<u32> = Store::new(engine, 0);
     let instance = linker.instantiate(&mut store, module);
@@ -137,7 +130,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
         let ty = export.ty();
         match ty {
             ExternType::Func(ft) => {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.newtable();
 
                 state.pushstring("type");
@@ -151,7 +144,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
                 state.pushstring("params");
                 state.newtable();
                 for (n, t) in ft.params().enumerate() {
-                    state.pushnumber((n+1) as lua_Number);
+                    state.pushnumber((n+1) as LuaNumber);
                     state.pushstring(t.to_string().as_str());
                     state.rawset(-3);
                 };
@@ -160,7 +153,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
                 state.pushstring("results");
                 state.newtable();
                 for (n, t) in ft.results().enumerate() {
-                    state.pushnumber((n+1) as lua_Number);
+                    state.pushnumber((n+1) as LuaNumber);
                     state.pushstring(t.to_string().as_str());
                     state.rawset(-3);
                 };
@@ -169,7 +162,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
                 state.rawset(-3);
             },
             ExternType::Global(gt) => {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.newtable();
 
                 state.pushstring("type");
@@ -187,7 +180,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
                 state.rawset(-3);
             },
             ExternType::Table(_) => {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.newtable();
 
                 state.pushstring("type");
@@ -201,7 +194,7 @@ fn meth_get_exports(state: &LuaState) -> i32 {
                 state.rawset(-3);
             },
             ExternType::Memory(_) => {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.newtable();
 
                 state.pushstring("type");
@@ -249,7 +242,7 @@ fn meth_get_export(state: &LuaState) -> i32 {
             state.pushstring("params");
             state.newtable();
             for (n, t) in ft.params().enumerate() {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.pushstring(t.to_string().as_str());
                 state.rawset(-3);
             };
@@ -258,7 +251,7 @@ fn meth_get_export(state: &LuaState) -> i32 {
             state.pushstring("results");
             state.newtable();
             for (n, t) in ft.results().enumerate() {
-                state.pushnumber((n+1) as lua_Number);
+                state.pushnumber((n+1) as LuaNumber);
                 state.pushstring(t.to_string().as_str());
                 state.rawset(-3);
             };
@@ -284,7 +277,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
 
     let func: Func;
     { 
-        let store = match state.to_typed_userdata::<Store<*mut lua_State>>(2) {
+        let store = match state.to_typed_userdata::<Store<*mut LuaRawState>>(2) {
             Some(store) => store,
             None => return 0,
         };
@@ -299,7 +292,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
     let mut results: Vec<Val> = Vec::new();
 
     {
-        let store = state.to_typed_userdata::<Store<*mut lua_State>>(2).unwrap();
+        let store = state.to_typed_userdata::<Store<*mut LuaRawState>>(2).unwrap();
         let ft = func.ty(store);
 
         for (n , vt) in ft.params().enumerate() {
@@ -354,7 +347,7 @@ fn meth_invoke(state: &LuaState) -> i32 {
     }
 
     {
-        let store = state.to_typed_userdata::<Store<*mut lua_State>>(2).unwrap();
+        let store = state.to_typed_userdata::<Store<*mut LuaRawState>>(2).unwrap();
         if let Err(_) = func.call(store, &params, &mut results) {
             return 0;
         }
@@ -362,10 +355,10 @@ fn meth_invoke(state: &LuaState) -> i32 {
 
     for val in results.iter() {
         match val {
-            Val::I32(v) => state.pushinteger(*v as lua_Integer),
-            Val::I64(v) => state.pushinteger(*v as lua_Integer),
-            Val::F32(v) => state.pushnumber(f32::from_ne_bytes((*v).to_ne_bytes()) as lua_Number),
-            Val::F64(v) => state.pushnumber(f64::from_ne_bytes((*v).to_ne_bytes()) as lua_Number),
+            Val::I32(v) => state.pushinteger(*v as LuaInteger),
+            Val::I64(v) => state.pushinteger(*v as LuaInteger),
+            Val::F32(v) => state.pushnumber(f32::from_ne_bytes((*v).to_ne_bytes()) as LuaNumber),
+            Val::F64(v) => state.pushnumber(f64::from_ne_bytes((*v).to_ne_bytes()) as LuaNumber),
             _ => return 0,
         }
     }
