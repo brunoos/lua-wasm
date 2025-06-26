@@ -1,5 +1,9 @@
 use std::os::raw::c_void;
-use wasmtime::{Engine, ExternType, Instance, Func, Linker, Module, Store, Val, ValType};
+
+use wasmtime::{
+    Engine, ExternType, Func, Instance, Linker, Module, Store, Val, ValType,
+    Mutability
+};
 
 mod lua;
 use lua::LuaState;
@@ -128,16 +132,112 @@ fn meth_get_exports(state: &LuaState) -> i32 {
         None => return 0,
     };
 
-    let mut idx: i32 = 0;
-
     state.newtable();
+    for (n, export) in module.exports().enumerate() {
+        let ty = export.ty();
+        match ty {
+            ExternType::Func(ft) => {
+                state.pushnumber((n+1) as lua_Number);
+                state.newtable();
+
+                state.pushstring("type");
+                state.pushstring("function");
+                state.rawset(-3);
+
+                state.pushstring("name");
+                state.pushstring(export.name());
+                state.rawset(-3);
+
+                state.pushstring("params");
+                state.newtable();
+                for (n, t) in ft.params().enumerate() {
+                    state.pushnumber((n+1) as lua_Number);
+                    state.pushstring(t.to_string().as_str());
+                    state.rawset(-3);
+                };
+                state.rawset(-3);
+
+                state.pushstring("results");
+                state.newtable();
+                for (n, t) in ft.results().enumerate() {
+                    state.pushnumber((n+1) as lua_Number);
+                    state.pushstring(t.to_string().as_str());
+                    state.rawset(-3);
+                };
+                state.rawset(-3);
+
+                state.rawset(-3);
+            },
+            ExternType::Global(gt) => {
+                state.pushnumber((n+1) as lua_Number);
+                state.newtable();
+
+                state.pushstring("type");
+                state.pushstring("global");
+                state.rawset(-3);
+
+                state.pushstring("name");
+                state.pushstring(export.name());
+                state.rawset(-3);
+
+                state.pushstring("mutable");
+                state.pushboolean(gt.mutability() == Mutability::Var);
+                state.rawset(-3);
+
+                state.rawset(-3);
+            },
+            ExternType::Table(_) => {
+                state.pushnumber((n+1) as lua_Number);
+                state.newtable();
+
+                state.pushstring("type");
+                state.pushstring("table");
+                state.rawset(-3);
+
+                state.pushstring("name");
+                state.pushstring(export.name());
+                state.rawset(-3);
+
+                state.rawset(-3);
+            },
+            ExternType::Memory(_) => {
+                state.pushnumber((n+1) as lua_Number);
+                state.newtable();
+
+                state.pushstring("type");
+                state.pushstring("memory");
+                state.rawset(-3);
+
+                state.pushstring("name");
+                state.pushstring(export.name());
+                state.rawset(-3);
+
+                state.rawset(-3);
+            },
+            _ => {},
+        }
+    }
+
+    return 1;
+}
+
+fn meth_get_export(state: &LuaState) -> i32 {
+    let module = match state.to_typed_userdata::<Module>(1) {
+        Some(module) => module,
+        None => return 0,
+    };
+
+    let name = match state.tostring(2) {
+        Some(name) => name,
+        None => return 0,
+    };
+
     for export in module.exports() {
+        if export.name() != name {
+            continue;
+        }
         if let ExternType::Func(ft) = export.ty() {
-            idx += 1;
-
-            state.pushnumber(idx as lua_Number);
             state.newtable();
-
             state.pushstring("type");
             state.pushstring("function");
             state.rawset(-3);
@@ -164,11 +264,11 @@ fn meth_get_exports(state: &LuaState) -> i32 {
             };
             state.rawset(-3);
 
-            state.rawset(-3);
+            return 1;
         }
     }
 
-    return 1;
+    return 0;
 }
 
 fn meth_invoke(state: &LuaState) -> i32 {
@@ -260,6 +360,7 @@ derive_cfunctions!(
     meth_destroy_linker,
     meth_create_instance,
     meth_destroy_instance,
+    meth_get_export,
     meth_get_exports,
     meth_destroy_store,
     meth_invoke
@@ -300,6 +401,10 @@ fn init_wasm_core(state: &LuaState) -> i32 {
 
     state.pushstring("destroy_instance");
     state.pushcfunction(Some(cfunctions::meth_destroy_instance));
+    state.rawset(-3);
+
+    state.pushstring("get_export");
+    state.pushcfunction(Some(cfunctions::meth_get_export));
     state.rawset(-3);
 
     state.pushstring("get_exports");

@@ -108,17 +108,9 @@ instancemeta.__index.exports = function(self)
 end
 
 instancemeta.__index.invoke = function(self, name, ...)
-  local exports = core.get_exports(self._module._refmodule)
-  if not exports then
-    return nil, "failed to get module exports"
-  end
-  for i, export in ipairs(exports) do
-    if export.name == name and export.type == "function" then
-      return core.invoke(self._refinstance, self._refstore, export.name, ...)
-    end
-  end
-  return nil, "function not found"
+  return core.invoke(self._refinstance, self._refstore, name, ...)
 end
+
 --------------------------------------------------------------------------------
 
 -- Creates a new engine.

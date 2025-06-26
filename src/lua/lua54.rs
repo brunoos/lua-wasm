@@ -14,6 +14,13 @@ pub type lua_Integer = ::std::os::raw::c_longlong;
 pub type lua_CFunction =
     ::std::option::Option<unsafe extern "C" fn(L: *mut lua_State) -> ::std::os::raw::c_int>;
 unsafe extern "C" {
+    pub fn lua_tonumberx(
+        L: *mut lua_State,
+        idx: ::std::os::raw::c_int,
+        isnum: *mut ::std::os::raw::c_int,
+    ) -> lua_Number;
+}
+unsafe extern "C" {
     pub fn lua_tointegerx(
         L: *mut lua_State,
         idx: ::std::os::raw::c_int,
@@ -45,6 +52,9 @@ unsafe extern "C" {
 }
 unsafe extern "C" {
     pub fn lua_pushcclosure(L: *mut lua_State, fn_: lua_CFunction, n: ::std::os::raw::c_int);
+}
+unsafe extern "C" {
+    pub fn lua_pushboolean(L: *mut lua_State, b: ::std::os::raw::c_int);
 }
 unsafe extern "C" {
     pub fn lua_pushlightuserdata(L: *mut lua_State, p: *mut ::std::os::raw::c_void);

@@ -7,7 +7,7 @@ use lua54::{
     lua_CFunction, lua_createtable, lua_pushlightuserdata,
     lua_pushcclosure, lua_pushlstring, lua_rawset,
     lua_touserdata, lua_tolstring, lua_pushnumber,
-    lua_tointegerx
+    lua_tointegerx, lua_pushboolean, lua_tonumberx
 };
 
 #[repr(transparent)]
@@ -24,6 +24,13 @@ impl LuaState {
         }
     }
     
+    pub fn pushboolean(self: &LuaState, b: bool) {
+        unsafe {
+            lua_pushboolean(self.0, if b { 1 } else { 0 });
+        }
+        
+    }
+
     pub fn pushcfunction(self: &LuaState, f: lua_CFunction) {
         unsafe {
             lua_pushcclosure(self.0, f, 0);
@@ -92,6 +99,18 @@ impl LuaState {
                 Some(
                     String::from_utf8_lossy(std::slice::from_raw_parts(ptr as *const u8, len)).into_owned()
                 )
+            }
+        }
+    }
+
+    pub fn tonumber(&self, idx: i32) -> Option<lua_Number> {
+        let mut isnum: c_int = 0;
+        unsafe {
+            let val = lua_tonumberx(self.0, idx as c_int, &mut isnum);
+            if isnum == 0 {
+                None
+            } else {
+                Some(val)
             }
         }
     }
