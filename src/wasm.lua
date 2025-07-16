@@ -55,27 +55,32 @@ end
 
 -- Create a new instance from a module, using this linker
 linker_meta.__index.instantiate = function(self, module)
-  local ref, store, err = core.instantiate(self._ref, self._engine._ref, module._ref)
+  local ref, refstore, err = core.instantiate(self._ref, self._engine._ref, module._ref)
   if not ref then
     return nil, err
   end
-  return setmetatable({_ref = ref, _store = store, _module = module}, instance_meta)
+  return setmetatable({_ref = ref, _refstore = refstore, _module = module}, instance_meta)
 end
 
 -- Destroy the instance
 instance_meta.__gc = function(self)
   if self._ref then
     core.del_instance(self._ref)
-    core.del_store(self._store)
+    core.del_store(self._refstore)
     self._ref = nil
-    self._store = nil
+    self._refstore = nil
     self._module = nil
   end
 end
 
 -- Invoke a function in the instance
 instance_meta.__index.invoke = function(self, name, ...)
-  return core.invoke(self._ref, self._store, name, ...)
+  return core.invoke(self._ref, self._refstore, name, ...)
+end
+
+-- Get export item type
+instance_meta.__index.getexport = function(self, name)
+  return core.get_export(self._ref, self._refstore, name)
 end
 
 --------------------------------------------------------------------------------

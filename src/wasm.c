@@ -168,6 +168,142 @@ static int meth_instantiate(lua_State *L)
    return 2;
 }
 
+/**
+ * Add valtypes to a table on top of stack.
+ * It return false if the type is unknown.
+ */
+static bool set_valtype(lua_State *L, const wasm_valtype_vec_t *vet)
+{
+   for (size_t i = 0; i < vet->size; i++) {
+      wasm_valkind_t k = wasm_valtype_kind(vet->data[i]);
+      lua_pushinteger(L, i+1);
+      switch (k) {
+         case WASM_I32:
+            lua_pushstring(L, "i32");
+            lua_rawset(L, -3);
+            break;
+         case WASM_I64:
+            lua_pushstring(L, "i64");
+            lua_rawset(L, -3);
+            break;
+         case WASM_F32:
+            lua_pushstring(L, "i32");
+            lua_rawset(L, -3);
+            break;
+         case WASM_F64:
+            lua_pushstring(L, "f64");
+            lua_rawset(L, -3);
+            break;
+         default:
+            return 0;
+      }
+   }
+   return 1;
+}
+
+/**
+ *  Get export.
+ */
+static int meth_get_export(lua_State *L)
+{ 
+   wasmtime_instance_t *instance = (wasmtime_instance_t*)lua_touserdata(L, 1);
+   wasmtime_store_t *store = (wasmtime_store_t*)lua_touserdata(L, 2);
+   const char *name = luaL_checkstring(L, 3);
+   size_t len = lua_rawlen(L, 3);
+
+   wasmtime_extern_t item;
+   wasmtime_context_t *context = wasmtime_store_context(store);
+   bool ok = wasmtime_instance_export_get(context, instance, name, len, &item);
+   if (!ok) {
+      lua_pushnil(L);
+      lua_pushstring(L, "failed to get the exported item");
+      return 2;
+   }
+
+   lua_newtable(L);
+
+   lua_pushstring(L, "name");
+   lua_pushvalue(L, 3);
+   lua_rawset(L, -3);
+
+   switch (item.kind) {
+      case WASMTIME_EXTERN_FUNC:
+         lua_pushstring(L, "type");
+         lua_pushstring(L, "function");
+         lua_rawset(L, -3);
+
+         wasm_functype_t *ftype = wasmtime_func_type(context, (wasmtime_func_t*)&item.of);
+
+         lua_pushstring(L, "params");
+         lua_newtable(L);
+         if (!set_valtype(L, wasm_functype_params(ftype))) {
+            wasm_functype_delete(ftype);
+            lua_pushnil(L);
+            lua_pushstring(L, "unknown item type");
+            return 2;
+         }
+         lua_rawset(L, -3);
+
+         lua_pushstring(L, "results");
+         lua_newtable(L);
+
+         if (!set_valtype(L, wasm_functype_results(ftype))) {
+            wasm_functype_delete(ftype);
+            lua_pushnil(L);
+            lua_pushstring(L, "unknown item type");
+            return 2;
+         }
+         lua_rawset(L, -3);
+
+         wasm_functype_delete(ftype);
+         break;
+      case WASMTIME_EXTERN_GLOBAL:
+         lua_pushstring(L, "type");
+         lua_pushstring(L, "global");
+         lua_rawset(L, -3);
+         break;
+      case WASMTIME_EXTERN_TABLE:
+         lua_pushstring(L, "type");
+         lua_pushstring(L, "table");
+         lua_rawset(L, -3);
+         break;
+      case WASMTIME_EXTERN_MEMORY:
+         lua_pushstring(L, "type");
+         lua_pushstring(L, "memory");
+         lua_rawset(L, -3);
+
+         wasm_memorytype_t *mtype = wasmtime_memory_type(context, (wasmtime_memory_t*)&item.of);
+         
+         uint64_t val = wasmtime_memorytype_minimum(mtype);
+         lua_pushstring(L, "min");
+         lua_pushinteger(L, val);
+         lua_rawset(L, -3);
+
+         if (wasmtime_memorytype_maximum(mtype, &val)) {
+            lua_pushstring(L, "max");
+            lua_pushinteger(L, val);
+            lua_rawset(L, -3);
+         }
+
+         wasm_memorytype_delete(mtype);
+         break;
+      case WASMTIME_EXTERN_SHAREDMEMORY:
+         lua_pushstring(L, "type");
+         lua_pushstring(L, "sharedmemory");
+         lua_rawset(L, -3);
+         break;
+      default:
+         wasmtime_extern_delete(&item);
+         lua_pushnil(L);
+         lua_pushstring(L, "unknown item type");
+         return 2;
+   }
+
+   wasmtime_extern_delete(&item);
+
+   return 1;
+}
+
 /*
 static int meth_invoke(lua_State *L)
 {
@@ -243,6 +379,7 @@ static luaL_Reg wasm_methods[] = {
    {"new_linker", meth_new_linker},
    {"del_linker", meth_del_linker},
    {"instantiate", meth_instantiate},
+   {"get_export", meth_get_export},
 //   {"invoke", meth_invoke},
    {NULL, NULL}
 };

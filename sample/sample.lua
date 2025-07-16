@@ -40,3 +40,32 @@ if not instance then
 end
 
 print("Instance", instance)
+
+print("---")
+
+print("Getting function 'adder' info:")
+local item, err = instance:getexport("adder")
+print(item, err)
+for k, v in pairs(item) do
+  print(k, v)
+  if k == "params" or k == "results" then
+    for k, v in ipairs(v) do
+      print(k, v)
+    end
+  end
+end
+
+print("---")
+
+print("Getting 'memory' info:")
+local item, err = instance:getexport("memory")
+print(item, err)
+for k, v in pairs(item) do
+  print(k, v)
+end
+
+print("---")
+
+print("Getting 'notexists' info:")
+local item, err = instance:getexport("notexists")
+print(item, err)
