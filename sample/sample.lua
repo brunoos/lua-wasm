@@ -66,6 +66,12 @@ end
 
 print("---")
 
-print("Getting 'notexists' info:")
-local item, err = instance:getexport("notexists")
+print("Getting 'nothing' info:")
+local item, err = instance:getexport("nothing")
 print(item, err)
+
+print("---")
+
+print("Invoking 'adder':")
+local res, err = instance:invoke("adder", 10, 20)
+print(res, err)

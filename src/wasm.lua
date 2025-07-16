@@ -75,7 +75,49 @@ end
 
 -- Invoke a function in the instance
 instance_meta.__index.invoke = function(self, name, ...)
-  return core.invoke(self._ref, self._refstore, name, ...)
+  local export, err = self:getexport(name)
+  if err or export.type ~= "function" then
+    error("function not found")
+  end
+
+  local params = {...}
+  if #params ~= #export.params then
+    error("invalid number of parameters")
+  end
+
+  local n = 3
+  local args = {#export.params, #export.results}
+
+  for i, ty in ipairs(export.params) do
+    if ty == "i32" and math.type(params[i]) == "integer" then
+      args[n] = core.i32
+    elseif ty == "i64" and math.type(params[i]) == "integer" then
+      args[n] = core.i64
+    elseif ty == "f32" and type(params[i]) == "number" then
+      args[n] = core.f32
+    elseif ty == "f64" and type(params[i]) == "number" then
+      args[n] = core.f64
+    else
+      error(string.format("invalid parameter type (%d)", i))
+    end
+    args[n+1] = params[i]
+    n = n + 2
+  end
+
+  for i, ty in ipairs(export.results) do
+    if     ty == "i32" then args[n] = core.i32 ; n = n + 1
+    elseif ty == "i64" then args[n] = core.i64 ; n = n + 1
+    elseif ty == "f32" then args[n] = core.f32 ; n = n + 1
+    elseif ty == "f64" then args[n] = core.f64 ; n = n + 1
+    end
+  end
+
+  return core.invoke(
+    self._ref,
+    self._refstore,
+    name,
+    table.unpack(args)
+  )
 end
 
 -- Get export item type

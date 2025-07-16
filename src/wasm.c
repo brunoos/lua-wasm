@@ -304,7 +304,6 @@ static int meth_get_export(lua_State *L)
    return 1;
 }
 
-/*
 static int meth_invoke(lua_State *L)
 {
    wasm_trap_t *trap = NULL;
@@ -317,25 +316,51 @@ static int meth_invoke(lua_State *L)
    const char *name = luaL_checkstring(L, 3);
    size_t len = lua_rawlen(L, 3);
 
-   wasmtime_extern_t run;
-   bool ok = wasmtime_instance_export_get(context, instance, name, len, &run);
-   if (!ok || run.kind != WASMTIME_EXTERN_FUNC) {
+   size_t nparams = (size_t)lua_tointeger(L, 4);
+   size_t nresults = (size_t)lua_tointeger(L, 5);
+
+   wasmtime_extern_t item;
+   bool ok = wasmtime_instance_export_get(context, instance, name, len, &item);
+   if (!ok || item.kind != WASMTIME_EXTERN_FUNC) {
       lua_pushstring(L, "failed to get the exported function");
       lua_error(L);
       return 0;
    }
 
-   lua_remove(L, 1); // Remove instance from stack
-   lua_remove(L, 1); // Remove store from stack
-   lua_remove(L, 1); // Remove function name from stack
+   wasmtime_val_t *params = NULL;
+   wasmtime_val_t *results = NULL;
 
-   wasmtime_val_t params[1];
-   wasmtime_val_t results[1];
+   int idx = 6;
 
-   params[0].kind = WASMTIME_I32;
-   params[0].of.i32 = 0;
+   if (nparams > 0) {
+      params  = (wasmtime_val_t*)malloc(nparams  * sizeof(wasmtime_val_t));
+      for (size_t i = 0; i < nparams; i++) {
+         params[i].kind = lua_tointeger(L, idx++);
+         switch (params[i].kind) {
+         case WASMTIME_I32:
+            params[i].of.i32 = (int32_t)lua_tointeger(L, idx++);
+            break;
+         case WASMTIME_I64:
+            params[i].of.i64 = (int64_t)lua_tointeger(L, idx++);
+            break;
+         case WASMTIME_F32:
+            params[i].of.f32 = (float)lua_tonumber(L, idx++);
+            break;
+         case WASMTIME_F64:
+            params[i].of.f64 = (double)lua_tonumber(L, idx++);
+            break;
+         }
+      }
+   }         
 
-   error = wasmtime_func_call(context, &run.of.func, params, 1, results, 1, &trap);
+   if (nresults > 0) {
+      results = (wasmtime_val_t*)malloc(nresults * sizeof(wasmtime_val_t));
+      for (size_t i = 0; i < nresults; i++) {
+         results[i].kind = lua_tointeger(L, idx++);
+      }
+   }
+
+   error = wasmtime_func_call(context, &item.of.func, params, nparams, results, nresults, &trap);
    if (error != NULL) {
       wasm_byte_vec_t message;
       wasmtime_error_message(error, &message);
@@ -345,6 +370,9 @@ static int meth_invoke(lua_State *L)
       wasmtime_store_delete(store);
       wasm_byte_vec_delete(&message);
       wasmtime_error_delete(error);
+
+      if (params)  free(params);
+      if (results) free(results);
 
       lua_error(L);
       return 0;
@@ -360,13 +388,35 @@ static int meth_invoke(lua_State *L)
       wasm_byte_vec_delete(&message);
       wasm_trap_delete(trap);
 
+      if (params)  free(params);
+      if (results) free(results);
+
       lua_error(L);
       return 0;
    }
 
-   return results[0].of.i32;
+   for (size_t i = 0; i < nresults; i++) {
+      switch (results[i].kind) {
+      case WASMTIME_I32:
+         lua_pushinteger(L, (lua_Integer)results[i].of.i32);
+         break;
+      case WASMTIME_I64:
+         lua_pushinteger(L, (lua_Integer)results[i].of.i64);
+         break;
+      case WASMTIME_F32:
+         lua_pushnumber(L, (lua_Number)results[i].of.f32);
+         break;
+      case WASMTIME_F64:
+         lua_pushnumber(L, (lua_Number)results[i].of.f64);
+         break;
+      }
+   }
+
+   if (params)  free(params);
+   if (results) free(results);
+
+   return (int)nresults;
 }
-*/
 
 //------------------------------------------------------------------------------
 
@@ -380,11 +430,28 @@ static luaL_Reg wasm_methods[] = {
    {"del_linker", meth_del_linker},
    {"instantiate", meth_instantiate},
    {"get_export", meth_get_export},
-//   {"invoke", meth_invoke},
+   {"invoke", meth_invoke},
    {NULL, NULL}
 };
 
 extern int luaopen_wasm_core(lua_State *L) {
    luaL_newlib(L, wasm_methods);
+
+   lua_pushstring(L, "i32");
+   lua_pushinteger(L, WASMTIME_I32);
+   lua_rawset(L, -3);
+
+   lua_pushstring(L, "i64");
+   lua_pushinteger(L, WASMTIME_I64);
+   lua_rawset(L, -3);
+
+   lua_pushstring(L, "f32");
+   lua_pushinteger(L, WASMTIME_F32);
+   lua_rawset(L, -3);
+
+   lua_pushstring(L, "f64");
+   lua_pushinteger(L, WASMTIME_F64);
+   lua_rawset(L, -3);
+
    return 1;
 }
